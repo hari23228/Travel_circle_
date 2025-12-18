@@ -59,12 +59,12 @@ export default function DashboardPage() {
           .from('circle_memberships')
           .select('circle_id')
           .eq('user_id', user.id)
-          .eq('status', 'active'),
+          .eq('is_active', true),
         // Fetch all active memberships to calculate member counts efficiently
         supabase
           .from('circle_memberships')
           .select('circle_id')
-          .eq('status', 'active')
+          .eq('is_active', true)
       ])
 
       const { data: memberships, error: membershipsError } = membershipsResult
@@ -177,16 +177,10 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <NotificationBell />
-            <Link href="/book-transport">
+            <Link href="/join-circle">
               <Button variant="ghost" className="text-foreground hover:text-primary">
-                <Plane className="w-5 h-5 mr-2" />
-                Transport
-              </Button>
-            </Link>
-            <Link href="/book-hotel">
-              <Button variant="ghost" className="text-foreground hover:text-primary">
-                <Hotel className="w-5 h-5 mr-2" />
-                Hotels
+                <Users className="w-5 h-5 mr-2" />
+                Join Circle
               </Button>
             </Link>
             <Link href="/profile">

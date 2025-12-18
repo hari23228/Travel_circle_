@@ -30,11 +30,21 @@ router.post('/signup', validateSignup, async (req, res, next) => {
     })
 
     if (authError) {
-      logger.error('Signup error', { error: authError.message, email })
+      logger.error('Signup error', { 
+        error: authError.message, 
+        email, 
+        code: authError.code,
+        status: authError.status 
+      })
       
-      if (authError.message.includes('already registered')) {
+      // Check for various "already exists" error messages from Supabase
+      // Common error messages: "User already registered", "Email already exists"
+      // Status 422 typically means validation error (duplicate email)
+      if (authError.message.toLowerCase().includes('already') || 
+          authError.code === 'user_already_exists' ||
+          authError.status === 422) {
         return res.status(409).json({
-          error: 'Email already registered',
+          error: 'This email is already registered. Please try logging in instead.',
           code: 'EMAIL_EXISTS'
         })
       }
@@ -63,10 +73,13 @@ router.post('/signup', validateSignup, async (req, res, next) => {
         phone,
         date_of_birth: dateOfBirth,
         city
+      }, {
+        onConflict: 'id'
       })
 
     if (profileError) {
       logger.error('Profile creation error', { error: profileError.message, userId: user.id })
+      // Don't fail the signup if profile creation fails - user can update later
     }
 
     logger.info('User signed up successfully', { userId: user.id, email })

@@ -249,12 +249,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Signup error:', error.message, error)
-        alert(`Signup failed: ${error.message}`)
+        // Show specific error message to user
+        let errorMessage = error.message
+        if (error.message.toLowerCase().includes('already') || error.status === 422) {
+          errorMessage = 'This email is already registered. Please try logging in instead.'
+        }
+        alert(`Signup failed: ${errorMessage}`)
         return false
       }
 
       if (data.user) {
         console.log('User created:', data.user)
+        
+        // Create profile in backend
+        try {
+          const profileResponse = await fetch('/api/profiles', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: data.user.id,
+              full_name: userData.name,
+              phone: userData.phone,
+              date_of_birth: userData.dateOfBirth,
+              city: userData.city
+            })
+          })
+          
+          if (!profileResponse.ok) {
+            console.warn('Profile creation in backend failed, but auth user created')
+          }
+        } catch (profileError) {
+          console.warn('Profile creation request failed:', profileError)
+        }
+        
         // Check if email confirmation is required
         if (data.session) {
           // User is logged in immediately (email confirmation disabled)

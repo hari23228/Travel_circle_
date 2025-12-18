@@ -519,13 +519,28 @@ router.post('/:id/invite', authenticateToken, validateCreateInvitation, async (r
       if (emailResult.success) {
         logger.info('Invitation email sent', { 
           invitationId: invitation.id, 
-          email: invitee_email 
+          email: invitee_email,
+          messageId: emailResult.messageId
         })
       } else {
-        logger.warn('Failed to send invitation email', { 
+        logger.error('Failed to send invitation email', { 
           invitationId: invitation.id, 
           email: invitee_email,
-          error: emailResult.message 
+          error: emailResult.error,
+          message: emailResult.message
+        })
+        
+        // Return warning to user about email failure
+        return res.status(201).json({
+          message: 'Invitation created, but email failed to send',
+          warning: 'Email service may not be configured. Share the invitation code manually.',
+          emailError: emailResult.message,
+          invitation: {
+            id: invitation.id,
+            invitation_code: invitation.invitation_code,
+            expires_at: invitation.expires_at,
+            email_sent: false
+          }
         })
       }
     }

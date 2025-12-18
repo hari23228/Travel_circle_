@@ -30,11 +30,12 @@ export default function JoinCirclePage() {
       
       if (!user) return
 
-      // Fetch all active circles (single query)
+      // Fetch all active PUBLIC circles (single query)
       const { data: allCircles, error } = await supabase
         .from('travel_circles')
         .select('*')
-        .eq('status', 'active')
+        .eq('is_active', true)
+        .eq('is_private', false)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -54,12 +55,13 @@ export default function JoinCirclePage() {
           .from('circle_memberships')
           .select('circle_id')
           .in('circle_id', circleIds)
-          .eq('status', 'active'),
+          .eq('is_active', true),
         supabase
           .from('circle_memberships')
           .select('circle_id')
           .in('circle_id', circleIds)
           .eq('user_id', user.id)
+          .eq('is_active', true)
       ])
 
       const { data: allMembers, error: allMembersError } = allMembersRes
@@ -80,11 +82,13 @@ export default function JoinCirclePage() {
 
       const mySet = new Set((myMemberships || []).map((m: any) => m.circle_id))
 
-      const circlesWithDetails = (allCircles || []).map((circle: any) => ({
-        ...circle,
-        memberCount: counts[circle.id] || 0,
-        isAlreadyMember: mySet.has(circle.id)
-      }))
+      const circlesWithDetails = (allCircles || [])
+        .map((circle: any) => ({
+          ...circle,
+          memberCount: counts[circle.id] || 0,
+          isAlreadyMember: mySet.has(circle.id)
+        }))
+        .filter((circle: any) => !circle.isAlreadyMember) // Hide circles the user is already a member of
 
       setCircles(circlesWithDetails)
     } catch (error) {
@@ -145,62 +149,36 @@ export default function JoinCirclePage() {
     setError("")
 
     try {
-      // First, find the invitation by code
-      const { data: invitation, error: inviteError } = await supabase
-        .from('circle_invitations')
-        .select('*, travel_circles(*)')
-        .eq('invitation_code', inviteCode.toUpperCase())
-        .eq('status', 'pending')
-        .single()
-
-      if (inviteError || !invitation) {
-        setError("Invalid or expired invite code")
-        setLoading(false)
-        return
-      }
-
-      // Check if invitation is expired
-      if (new Date(invitation.expires_at) < new Date()) {
-        setError("This invite code has expired")
-        setLoading(false)
-        return
-      }
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      // Use backend API to join by invitation code
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
         setError("You must be logged in to join a circle")
         setLoading(false)
         return
       }
 
-      // Join the circle
-      const { error: memberError } = await supabase
-        .from('circle_memberships')
-        .insert({
-          circle_id: invitation.circle_id,
-          user_id: user.id,
-          role: 'member'
+      const response = await fetch('http://localhost:5001/api/circles/join-by-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          invitation_code: inviteCode.trim().toUpperCase()
         })
+      })
 
-      if (memberError) {
-        if (memberError.message.includes('duplicate')) {
-          setError("You're already a member of this circle")
-        } else {
-          setError("Failed to join circle. Please try again.")
-        }
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to join circle')
         setLoading(false)
         return
       }
 
-      // Update invitation status
-      await supabase
-        .from('circle_invitations')
-        .update({ status: 'accepted', responded_at: new Date().toISOString() })
-        .eq('id', invitation.id)
-
-      // Redirect to circle page
-      router.push(`/circle/${invitation.circle_id}`)
+      // Success - redirect to circle page
+      router.push(`/circle/${data.membership.circle_id}`)
     } catch (error) {
       console.error('Error joining circle:', error)
       setError("An error occurred. Please try again.")

@@ -203,7 +203,7 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
             user_id,
             role,
             joined_at,
-            status,
+            is_active,
             profiles (
               id,
               email,
@@ -211,14 +211,14 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
             )
           `)
           .eq('circle_id', circleId)
-          .eq('status', 'active'),
+          .eq('is_active', true),
         supabase
-          .from('contributions')
+          .from('circle_contributions')
           .select(`
             id,
             user_id,
             amount,
-            created_at,
+            contribution_date,
             payment_method,
             notes,
             profiles (
@@ -227,8 +227,8 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
             )
           `)
           .eq('circle_id', circleId)
-          .eq('status', 'completed')
-          .order('created_at', { ascending: false })
+          .eq('status', 'confirmed')
+          .order('contribution_date', { ascending: false })
       ])
 
       const { data: circleData, error: circleError } = circleResult
@@ -495,16 +495,17 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
     try {
       setLoading(true)
       const amount = parseFloat(manualPaymentAmount)
+      const currentCircleId = getCircleId()
 
       // Insert contribution into database
       const { error } = await supabase
-        .from('contributions')
+        .from('circle_contributions')
         .insert({
-          circle_id: params.id,
+          circle_id: currentCircleId,
           user_id: manualPaymentMember,
           amount: amount,
           payment_method: 'cash',
-          status: 'completed',
+          status: 'confirmed',
           notes: manualPaymentNote || null
         })
 
@@ -519,7 +520,7 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
       await supabase
         .from('travel_circles')
         .update({ current_amount: newTotal })
-        .eq('id', params.id)
+        .eq('id', currentCircleId)
 
       // Refresh circle data
       await fetchCircleDetails()
@@ -544,12 +545,20 @@ export default function CircleDetailPage({ params }: { params: Promise<{ id: str
 
     try {
       setLoading(true)
+      
+      // Use circleId state variable instead of params.id
+      const currentCircleId = getCircleId()
+      
+      if (!currentCircleId) {
+        alert('Circle ID not found')
+        return
+      }
 
       // Update membership status to inactive
       const { error } = await supabase
         .from('circle_memberships')
         .update({ status: 'inactive' })
-        .eq('circle_id', params.id)
+        .eq('circle_id', currentCircleId)
         .eq('user_id', memberId)
 
       if (error) {

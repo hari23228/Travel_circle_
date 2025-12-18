@@ -113,8 +113,7 @@ export default function CreateCirclePage() {
         .insert({
           circle_id: circle.id,
           user_id: user.id,
-          role: 'admin',
-          status: 'active'
+          role: 'admin'
         })
 
       if (memberError) {

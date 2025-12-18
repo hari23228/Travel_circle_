@@ -10,6 +10,10 @@ const createTransporter = () => {
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
+    },
+    tls: {
+      // For development: ignore certificate errors
+      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0'
     }
   }
 
@@ -194,8 +198,14 @@ Tripzz - Travel Together, Save Together
 // Send email function
 const sendEmail = async (to, templateName, templateData) => {
   if (!transporter) {
-    logger.warn('Email not sent - transporter not configured', { to, templateName })
-    return { success: false, message: 'Email service not configured' }
+    const errorMsg = 'Email service not configured - missing EMAIL_USER or EMAIL_PASSWORD in .env'
+    logger.error(errorMsg, { to, templateName })
+    // Return failure instead of false success
+    return { 
+      success: false, 
+      message: errorMsg,
+      error: 'EMAIL_NOT_CONFIGURED'
+    }
   }
 
   try {
@@ -212,22 +222,29 @@ const sendEmail = async (to, templateName, templateData) => {
       html: emailTemplate.html
     }
 
+    // Actually send the email
     const info = await transporter.sendMail(mailOptions)
     
+    // Log success
     logger.info('Email sent successfully', { 
       to, 
       templateName, 
-      messageId: info.messageId 
+      messageId: info.messageId,
+      response: info.response
     })
     
     return { 
       success: true, 
       messageId: info.messageId,
-      message: 'Email sent successfully'
+      message: 'Email sent successfully',
+      response: info.response
     }
   } catch (error) {
+    // Log detailed error
     logger.error('Failed to send email', { 
-      error: error.message, 
+      error: error.message,
+      code: error.code,
+      command: error.command,
       to, 
       templateName 
     })
@@ -235,7 +252,8 @@ const sendEmail = async (to, templateName, templateData) => {
     return { 
       success: false, 
       error: error.message,
-      message: 'Failed to send email'
+      code: error.code,
+      message: `Failed to send email: ${error.message}`
     }
   }
 }

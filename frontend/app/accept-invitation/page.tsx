@@ -101,8 +101,7 @@ export default function AcceptInvitationPage() {
         .insert({
           circle_id: invitation.circle_id,
           user_id: userId,
-          role: 'member',
-          status: 'active'
+          role: 'member'
         })
 
       if (memberError) {
