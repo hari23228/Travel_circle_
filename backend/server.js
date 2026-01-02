@@ -12,6 +12,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler')
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/users')
 const circleRoutes = require('./routes/circles')
+const chatbotRoutes = require('./routes/chatbot')
 
 // Create Express app
 const app = express()
@@ -62,6 +63,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/circles', circleRoutes)
+app.use('/api/chatbot', chatbotRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -73,7 +75,8 @@ app.get('/', (req, res) => {
       health: '/health',
       auth: '/api/auth',
       users: '/api/users',
-      circles: '/api/circles'
+      circles: '/api/circles',
+      chatbot: '/api/chatbot'
     },
     documentation: 'https://docs.tripzz.com/api' // Update with actual docs URL
   })
@@ -110,6 +113,7 @@ const server = app.listen(PORT, () => {
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`)
   console.log(`👥 Users API: http://localhost:${PORT}/api/users`)
   console.log(`⭕ Circles API: http://localhost:${PORT}/api/circles`)
+  console.log(`🤖 Chatbot API: http://localhost:${PORT}/api/chatbot`)
   console.log('================================')
   
   if (config.nodeEnv === 'development') {
