@@ -252,3 +252,6 @@ export function getTransportOptions(
 
   return baseOptions[type]
 }
+
+// Alias for the generate-itinerary page
+export const touristDestinations = TOURIST_DESTINATIONS

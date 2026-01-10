@@ -12,6 +12,8 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler')
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/users')
 const circleRoutes = require('./routes/circles')
+const profileRoutes = require('./routes/profiles')
+const itineraryRoutes = require('./routes/itineraries')
 
 // Create Express app
 const app = express()
@@ -62,6 +64,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/circles', circleRoutes)
+app.use('/api/profiles', profileRoutes)
+app.use('/api/itineraries', itineraryRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -73,7 +77,9 @@ app.get('/', (req, res) => {
       health: '/health',
       auth: '/api/auth',
       users: '/api/users',
-      circles: '/api/circles'
+      circles: '/api/circles',
+      profiles: '/api/profiles',
+      itineraries: '/api/itineraries'
     },
     documentation: 'https://docs.tripzz.com/api' // Update with actual docs URL
   })
