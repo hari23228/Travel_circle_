@@ -2,33 +2,61 @@ import { supabase } from './supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
-// API client with authentication
+// Simple in-memory cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 30000 // 30 seconds
+
+// API client with authentication and caching
 class ApiClient {
   private baseUrl: string
+  private cachedSession: any = null
+  private sessionTimestamp: number = 0
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
-    const { data: { session } } = await supabase.auth.getSession()
+    // Cache session for 5 minutes to avoid repeated calls
+    const now = Date.now()
+    if (!this.cachedSession || now - this.sessionTimestamp > 300000) {
+      const { data: { session } } = await supabase.auth.getSession()
+      this.cachedSession = session
+      this.sessionTimestamp = now
+    }
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     }
 
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`
+    if (this.cachedSession?.access_token) {
+      headers.Authorization = `Bearer ${this.cachedSession.access_token}`
     }
 
     return headers
   }
 
+  // Clear session cache (call on logout)
+  clearSessionCache() {
+    this.cachedSession = null
+    this.sessionTimestamp = 0
+  }
+
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    useCache: boolean = false
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
+    
+    // Check cache for GET requests
+    if (useCache && (!options.method || options.method === 'GET')) {
+      const cached = apiCache.get(url)
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data
+      }
+    }
+
     const headers = await this.getAuthHeaders()
 
     const config: RequestInit = {
@@ -49,6 +77,12 @@ class ApiClient {
       }
 
       const data = await response.json()
+      
+      // Cache GET responses
+      if (useCache && (!options.method || options.method === 'GET')) {
+        apiCache.set(url, { data, timestamp: Date.now() })
+      }
+      
       return data
     } catch (error) {
       console.error(`API Error [${options.method || 'GET'}] ${endpoint}:`, error)
@@ -57,7 +91,9 @@ class ApiClient {
   }
 
   // Generic HTTP methods
-  async get<T>(endpoint: string): Promise<T> {
+  async get<T>(endpoint: string, useCache: boolean = false): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET' }, useCache)
+  }
     return this.request<T>(endpoint, { method: 'GET' })
   }
 

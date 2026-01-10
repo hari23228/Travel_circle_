@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -31,26 +31,32 @@ export default function DashboardPage() {
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached)
-          // Use cache if less than 30 seconds old
-          if (Date.now() - timestamp < 30000) {
+          // Use cache if less than 60 seconds old (increased from 30s)
+          if (Date.now() - timestamp < 60000) {
             console.log('Using cached circles data')
             setCircles(data)
             setLoadingCircles(false)
+            // Fetch fresh data in background after showing cached
+            setTimeout(() => fetchUserCircles(true), 100)
             return
           }
         } catch (e) {
           console.warn('Failed to parse cached circles')
         }
       }
-      fetchUserCircles()
+      fetchUserCircles(false)
     }
   }, [user?.id]) // Only refetch when user ID changes, not on every user object change
 
-  const fetchUserCircles = async () => {
+  const fetchUserCircles = useCallback(async (isBackgroundRefresh = false) => {
     if (!user?.id) return // Exit early if no user
     
-    try {
+    // Don't show loading spinner for background refreshes
+    if (!isBackgroundRefresh) {
       setLoadingCircles(true)
+    }
+    
+    try {
       console.log('Fetching circles for user:', user.id)
 
       // Fetch memberships and circles in parallel
@@ -140,7 +146,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingCircles(false)
     }
-  }
+  }, [user])
 
   const handleLogout = () => {
     logout()

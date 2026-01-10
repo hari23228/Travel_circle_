@@ -5,7 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { PaymentProvider } from "@/lib/payment-context"
 import { NotificationProvider } from "@/lib/notification-context"
-import { Chatbot } from "@/components/chatbot"
+import { ClientChatbot } from "@/components/client-chatbot"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -47,7 +47,7 @@ export default function RootLayout({
           <PaymentProvider>
             <NotificationProvider>
               {children}
-              <Chatbot />
+              <ClientChatbot />
             </NotificationProvider>
           </PaymentProvider>
         </AuthProvider>

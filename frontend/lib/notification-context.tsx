@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react'
 
 export interface Notification {
   id: string
@@ -82,9 +82,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   ])
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications])
 
-  const markAsRead = (notificationId: string) => {
+  const markAsRead = useCallback((notificationId: string) => {
     setNotifications(prev => 
       prev.map(notification => 
         notification.id === notificationId 
@@ -92,21 +92,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           : notification
       )
     )
-  }
+  }, [])
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(prev => 
       prev.map(notification => ({ ...notification, isRead: true }))
     )
-  }
+  }, [])
 
-  const deleteNotification = (notificationId: string) => {
+  const deleteNotification = useCallback((notificationId: string) => {
     setNotifications(prev => 
       prev.filter(notification => notification.id !== notificationId)
     )
-  }
+  }, [])
 
-  const sendNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
+  const sendNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotification: Notification = {
       ...notification,
       id: Date.now().toString(),
@@ -119,7 +119,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // Simulate email/SMS sending
     console.log('📧 Email notification sent:', newNotification)
     console.log('📱 SMS notification sent:', newNotification)
-  }
+  }, [])
 
   // Simulate periodic notifications
   useEffect(() => {

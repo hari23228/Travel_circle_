@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const morgan = require('morgan')
+const compression = require('compression')
 require('dotenv').config()
 
 const config = require('./config')
@@ -19,6 +20,18 @@ const app = express()
 
 // Trust proxy for production deployment
 app.set('trust proxy', 1)
+
+// Enable gzip compression for all responses
+app.use(compression({
+  level: 6, // Balanced compression level
+  threshold: 1024, // Only compress responses > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false
+    }
+    return compression.filter(req, res)
+  }
+}))
 
 // Security middleware
 app.use(helmet({

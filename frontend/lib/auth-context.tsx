@@ -107,38 +107,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        console.error('Error fetching profile:', error)
-        return
-      }
-
-      if (profile) {
-        const userData: User = {
-          id: profile.id,
-          name: profile.full_name || '',
-          email: supabaseUser?.email || '',
-          phone: profile.phone || '',
-          dateOfBirth: profile.date_of_birth,
-          city: profile.city,
-          profileImage: profile.avatar_url,
-          joinedAt: profile.created_at,
-          isVerified: profile.is_verified,
-          totalSavings: profile.total_savings || 0,
-          activeCircles: profile.active_circles || 0,
-          rewardsEarned: profile.rewards_earned || 0,
-          username: profile.username,
-          bio: profile.bio
+      // Check cache first for instant loading
+      const cacheKey = `profile:${userId}`
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        try {
+          const { data: cachedProfile, timestamp } = JSON.parse(cached)
+          // Use cache if less than 2 minutes old
+          if (Date.now() - timestamp < 120000) {
+            const userData: User = {
+              id: cachedProfile.id,
+              name: cachedProfile.full_name || '',
+              email: supabaseUser?.email || '',
+              phone: cachedProfile.phone || '',
+              dateOfBirth: cachedProfile.date_of_birth,
+              city: cachedProfile.city,
+              profileImage: cachedProfile.avatar_url,
+              joinedAt: cachedProfile.created_at,
+              isVerified: cachedProfile.is_verified,
+              totalSavings: cachedProfile.total_savings || 0,
+              activeCircles: cachedProfile.active_circles || 0,
+              rewardsEarned: cachedProfile.rewards_earned || 0,
+              username: cachedProfile.username,
+              bio: cachedProfile.bio
+            }
+            setUser(userData)
+            // Still fetch fresh data in background
+            fetchFreshProfile(userId)
+            return
+          }
+        } catch (e) {
+          console.warn('Failed to parse cached profile')
         }
-        setUser(userData)
       }
+      
+      await fetchFreshProfile(userId)
     } catch (error) {
       console.error('Error fetching user profile:', error)
+    }
+  }
+
+  const fetchFreshProfile = async (userId: string) => {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching profile:', error)
+      return
+    }
+
+    if (profile) {
+      // Cache the profile
+      try {
+        localStorage.setItem(`profile:${userId}`, JSON.stringify({
+          data: profile,
+          timestamp: Date.now()
+        }))
+      } catch (e) {
+        console.warn('Failed to cache profile')
+      }
+
+      const userData: User = {
+        id: profile.id,
+        name: profile.full_name || '',
+        email: supabaseUser?.email || '',
+        phone: profile.phone || '',
+        dateOfBirth: profile.date_of_birth,
+        city: profile.city,
+        profileImage: profile.avatar_url,
+        joinedAt: profile.created_at,
+        isVerified: profile.is_verified,
+        totalSavings: profile.total_savings || 0,
+        activeCircles: profile.active_circles || 0,
+        rewardsEarned: profile.rewards_earned || 0,
+        username: profile.username,
+        bio: profile.bio
+      }
+      setUser(userData)
     }
   }
 

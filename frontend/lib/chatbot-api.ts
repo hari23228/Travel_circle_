@@ -45,18 +45,33 @@ export interface ChatbotResponse {
 }
 
 class ChatbotAPI {
+  private cachedSession: any = null
+  private sessionTimestamp: number = 0
+
   private async getHeaders() {
-    const { data: { session } } = await supabase.auth.getSession()
+    // Cache session for 5 minutes to avoid repeated Supabase calls
+    const now = Date.now()
+    if (!this.cachedSession || now - this.sessionTimestamp > 300000) {
+      const { data: { session } } = await supabase.auth.getSession()
+      this.cachedSession = session
+      this.sessionTimestamp = now
+    }
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     }
 
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`
+    if (this.cachedSession?.access_token) {
+      headers.Authorization = `Bearer ${this.cachedSession.access_token}`
     }
 
     return headers
+  }
+
+  // Clear session cache (call on logout)
+  clearSessionCache() {
+    this.cachedSession = null
+    this.sessionTimestamp = 0
   }
 
   async sendMessage(message: string, metadata?: ChatbotMetadata): Promise<ChatbotResponse> {
@@ -64,7 +79,6 @@ class ChatbotAPI {
     const url = `${API_BASE_URL}/api/chatbot/message`
     
     console.log('[Chatbot API] Sending message to:', url)
-    console.log('[Chatbot API] API_BASE_URL:', API_BASE_URL)
     
     const response = await fetch(url, {
       method: 'POST',
