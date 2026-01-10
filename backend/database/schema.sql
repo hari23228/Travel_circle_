@@ -419,6 +419,335 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
+-- ITINERARIES TABLE (Smart Itinerary Generation)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS itineraries (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  circle_id UUID REFERENCES travel_circles(id) ON DELETE CASCADE,
+  creator_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Trip Details
+  title TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  destination_country TEXT,
+  destination_lat DECIMAL(10, 8),
+  destination_lng DECIMAL(11, 8),
+  
+  -- Dates
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  total_days INTEGER NOT NULL,
+  
+  -- Budget Planning (DIFFERENTIATOR #1: Budget-First)
+  total_budget DECIMAL(12,2) NOT NULL,
+  per_person_budget DECIMAL(12,2),
+  per_day_budget DECIMAL(12,2),
+  planned_spend DECIMAL(12,2) DEFAULT 0.00,
+  currency TEXT DEFAULT 'INR',
+  
+  -- Preferences
+  interests TEXT[] DEFAULT '{}', -- ['culture', 'food', 'adventure', 'nature', 'shopping']
+  pace TEXT DEFAULT 'moderate' CHECK (pace IN ('relaxed', 'moderate', 'packed')),
+  
+  -- Status
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'generating', 'generated', 'confirmed', 'completed')),
+  
+  -- AI Generation metadata
+  ai_model_used TEXT,
+  generation_prompt TEXT,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- ITINERARY DAYS TABLE
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS itinerary_days (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  itinerary_id UUID REFERENCES itineraries(id) ON DELETE CASCADE NOT NULL,
+  day_number INTEGER NOT NULL,
+  date DATE NOT NULL,
+  
+  -- Theme for the day
+  theme TEXT, -- 'Cultural Exploration', 'Beach Day', 'Adventure Day'
+  
+  -- Budget for this day
+  planned_budget DECIMAL(10,2) DEFAULT 0.00,
+  actual_spend DECIMAL(10,2) DEFAULT 0.00,
+  
+  -- Timing
+  start_time TIME DEFAULT '09:00',
+  end_time TIME DEFAULT '21:00',
+  
+  -- Summary
+  notes TEXT,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(itinerary_id, day_number)
+);
+
+-- ============================================================================
+-- ITINERARY ACTIVITIES TABLE
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS itinerary_activities (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  day_id UUID REFERENCES itinerary_days(id) ON DELETE CASCADE NOT NULL,
+  itinerary_id UUID REFERENCES itineraries(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Sequence
+  sequence_order INTEGER NOT NULL,
+  
+  -- Activity Details
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT NOT NULL, -- 'attraction', 'restaurant', 'activity', 'transport', 'accommodation', 'break'
+  
+  -- Location
+  place_id TEXT, -- Google Place ID
+  address TEXT,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  
+  -- Timing
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  duration_minutes INTEGER NOT NULL,
+  
+  -- Cost (Budget-First Planning)
+  estimated_cost DECIMAL(10,2) DEFAULT 0.00,
+  cost_category TEXT DEFAULT 'medium' CHECK (cost_category IN ('free', 'budget', 'medium', 'expensive')),
+  
+  -- Additional Info
+  image_url TEXT,
+  rating DECIMAL(2,1),
+  review_count INTEGER,
+  tips TEXT,
+  booking_required BOOLEAN DEFAULT FALSE,
+  booking_url TEXT,
+  
+  -- Buffer/Flexibility
+  is_buffer_time BOOLEAN DEFAULT FALSE,
+  is_optional BOOLEAN DEFAULT FALSE,
+  
+  -- Circle Consensus (DIFFERENTIATOR #2)
+  popularity_score INTEGER DEFAULT 0, -- How many members want this
+  
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- MEMBER PREFERENCES TABLE (Circle Consensus Builder)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS member_preferences (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  itinerary_id UUID REFERENCES itineraries(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Interest Ratings (1-5 scale)
+  culture_rating INTEGER DEFAULT 3 CHECK (culture_rating BETWEEN 1 AND 5),
+  food_rating INTEGER DEFAULT 3 CHECK (food_rating BETWEEN 1 AND 5),
+  adventure_rating INTEGER DEFAULT 3 CHECK (adventure_rating BETWEEN 1 AND 5),
+  nature_rating INTEGER DEFAULT 3 CHECK (nature_rating BETWEEN 1 AND 5),
+  shopping_rating INTEGER DEFAULT 3 CHECK (shopping_rating BETWEEN 1 AND 5),
+  nightlife_rating INTEGER DEFAULT 3 CHECK (nightlife_rating BETWEEN 1 AND 5),
+  relaxation_rating INTEGER DEFAULT 3 CHECK (relaxation_rating BETWEEN 1 AND 5),
+  
+  -- Pace preference
+  preferred_pace TEXT DEFAULT 'moderate' CHECK (preferred_pace IN ('relaxed', 'moderate', 'packed')),
+  
+  -- Budget comfort
+  max_daily_budget DECIMAL(10,2),
+  
+  -- Dietary restrictions
+  dietary_restrictions TEXT[],
+  
+  -- Accessibility needs
+  accessibility_needs TEXT,
+  
+  -- Notes
+  notes TEXT,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(itinerary_id, user_id)
+);
+
+-- ============================================================================
+-- ACTIVITY VOTES TABLE (Circle Consensus - Voting System)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS activity_votes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  activity_id UUID REFERENCES itinerary_activities(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Vote type
+  vote_type TEXT NOT NULL CHECK (vote_type IN ('love', 'like', 'neutral', 'dislike')),
+  
+  -- Optional comment
+  comment TEXT,
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(activity_id, user_id)
+);
+
+-- ============================================================================
+-- ITINERARY ROUTES TABLE (For map visualization)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS itinerary_routes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  day_id UUID REFERENCES itinerary_days(id) ON DELETE CASCADE NOT NULL,
+  from_activity_id UUID REFERENCES itinerary_activities(id),
+  to_activity_id UUID REFERENCES itinerary_activities(id),
+  
+  -- Route details
+  distance_meters INTEGER,
+  duration_minutes INTEGER,
+  transport_mode TEXT DEFAULT 'walking' CHECK (transport_mode IN ('walking', 'driving', 'transit', 'cycling')),
+  
+  -- Map data
+  polyline TEXT, -- Encoded polyline for map display
+  
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- ATTRACTIONS DATABASE (Pre-populated attractions for budget planning)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS attractions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  place_id TEXT UNIQUE,
+  
+  -- Basic Info
+  name TEXT NOT NULL,
+  description TEXT,
+  destination TEXT NOT NULL, -- City/Area
+  country TEXT,
+  
+  -- Location
+  address TEXT,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  
+  -- Categories
+  category TEXT NOT NULL, -- 'attraction', 'restaurant', 'activity', 'shopping', 'nightlife'
+  subcategory TEXT,
+  tags TEXT[],
+  
+  -- Budget Info (CRITICAL for Budget-First Planning)
+  estimated_cost DECIMAL(10,2) DEFAULT 0.00,
+  cost_category TEXT DEFAULT 'medium' CHECK (cost_category IN ('free', 'budget', 'medium', 'expensive')),
+  currency TEXT DEFAULT 'INR',
+  
+  -- Timing
+  typical_duration_minutes INTEGER DEFAULT 60,
+  opening_hours JSONB DEFAULT '{}',
+  best_time_to_visit TEXT,
+  
+  -- Ratings
+  rating DECIMAL(2,1),
+  review_count INTEGER,
+  
+  -- Media
+  image_url TEXT,
+  images TEXT[],
+  
+  -- Popularity for suggestions
+  popularity_score INTEGER DEFAULT 0,
+  
+  -- Metadata
+  data_source TEXT,
+  last_updated TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- ITINERARY INDEXES
+-- ============================================================================
+CREATE INDEX IF NOT EXISTS idx_itineraries_circle ON itineraries(circle_id);
+CREATE INDEX IF NOT EXISTS idx_itineraries_creator ON itineraries(creator_id);
+CREATE INDEX IF NOT EXISTS idx_itineraries_destination ON itineraries(destination);
+CREATE INDEX IF NOT EXISTS idx_itineraries_status ON itineraries(status);
+CREATE INDEX IF NOT EXISTS idx_itinerary_days_itinerary ON itinerary_days(itinerary_id);
+CREATE INDEX IF NOT EXISTS idx_itinerary_activities_day ON itinerary_activities(day_id);
+CREATE INDEX IF NOT EXISTS idx_itinerary_activities_itinerary ON itinerary_activities(itinerary_id);
+CREATE INDEX IF NOT EXISTS idx_member_preferences_itinerary ON member_preferences(itinerary_id);
+CREATE INDEX IF NOT EXISTS idx_activity_votes_activity ON activity_votes(activity_id);
+CREATE INDEX IF NOT EXISTS idx_attractions_destination ON attractions(destination);
+CREATE INDEX IF NOT EXISTS idx_attractions_category ON attractions(category);
+
+-- ============================================================================
+-- ITINERARY FUNCTIONS
+-- ============================================================================
+
+-- Function to calculate itinerary total cost
+CREATE OR REPLACE FUNCTION calculate_itinerary_cost(p_itinerary_id UUID)
+RETURNS DECIMAL AS $$
+DECLARE
+  total DECIMAL(12,2);
+BEGIN
+  SELECT COALESCE(SUM(estimated_cost), 0) INTO total
+  FROM itinerary_activities
+  WHERE itinerary_id = p_itinerary_id;
+  
+  RETURN total;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to update itinerary planned spend
+CREATE OR REPLACE FUNCTION update_itinerary_spend()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE itineraries
+  SET planned_spend = calculate_itinerary_cost(COALESCE(NEW.itinerary_id, OLD.itinerary_id)),
+      updated_at = NOW()
+  WHERE id = COALESCE(NEW.itinerary_id, OLD.itinerary_id);
+  
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-update planned spend
+CREATE TRIGGER update_itinerary_spend_trigger
+  AFTER INSERT OR UPDATE OR DELETE ON itinerary_activities
+  FOR EACH ROW EXECUTE FUNCTION update_itinerary_spend();
+
+-- Function to calculate day cost
+CREATE OR REPLACE FUNCTION calculate_day_cost(p_day_id UUID)
+RETURNS DECIMAL AS $$
+DECLARE
+  total DECIMAL(10,2);
+BEGIN
+  SELECT COALESCE(SUM(estimated_cost), 0) INTO total
+  FROM itinerary_activities
+  WHERE day_id = p_day_id;
+  
+  RETURN total;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to update activity popularity based on votes
+CREATE OR REPLACE FUNCTION update_activity_popularity()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE itinerary_activities
+  SET popularity_score = (
+    SELECT COUNT(*) FILTER (WHERE vote_type IN ('love', 'like'))
+    FROM activity_votes
+    WHERE activity_id = COALESCE(NEW.activity_id, OLD.activity_id)
+  )
+  WHERE id = COALESCE(NEW.activity_id, OLD.activity_id);
+  
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-update popularity
+CREATE TRIGGER update_activity_popularity_trigger
+  AFTER INSERT OR UPDATE OR DELETE ON activity_votes
+  FOR EACH ROW EXECUTE FUNCTION update_activity_popularity();
+
+-- ============================================================================
 -- INITIAL DATA / SEED DATA
 -- ============================================================================
 

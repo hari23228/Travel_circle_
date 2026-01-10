@@ -157,6 +157,7 @@ const checkCircleMember = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
+  requireAuth: authenticateToken, // Alias for cleaner imports
   optionalAuth,
   checkCircleRole,
   checkCircleMember

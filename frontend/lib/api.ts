@@ -59,8 +59,14 @@ class ApiClient {
 
     const headers = await this.getAuthHeaders()
 
+    // Add timeout for long-running requests (2 minutes for itinerary generation)
+    const timeoutMs = endpoint.includes('/itineraries/generate') ? 120000 : 30000
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
     const config: RequestInit = {
       headers,
+      signal: controller.signal,
       ...options,
     }
 
@@ -69,7 +75,9 @@ class ApiClient {
     }
 
     try {
+      console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`)
       const response = await fetch(url, config)
+      clearTimeout(timeoutId)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -77,6 +85,7 @@ class ApiClient {
       }
 
       const data = await response.json()
+      console.log(`✅ API Response: ${options.method || 'GET'} ${url}`, data)
       
       // Cache GET responses
       if (useCache && (!options.method || options.method === 'GET')) {
@@ -84,8 +93,13 @@ class ApiClient {
       }
       
       return data
-    } catch (error) {
-      console.error(`API Error [${options.method || 'GET'}] ${endpoint}:`, error)
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        console.error(`⏱️ API Timeout [${options.method || 'GET'}] ${endpoint}`)
+        throw new Error(`Request timed out after ${timeoutMs/1000}s. The server might be slow or unavailable.`)
+      }
+      console.error(`❌ API Error [${options.method || 'GET'}] ${endpoint}:`, error)
       throw error
     }
   }
@@ -93,8 +107,6 @@ class ApiClient {
   // Generic HTTP methods
   async get<T>(endpoint: string, useCache: boolean = false): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET' }, useCache)
-  }
-    return this.request<T>(endpoint, { method: 'GET' })
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {
@@ -176,6 +188,26 @@ export const bookingAPI = {
   getById: (id: string) => apiClient.get<{ booking: any }>(`/bookings/${id}`),
   update: (id: string, data: any) => apiClient.put<{ booking: any }>(`/bookings/${id}`, data),
   cancel: (id: string) => apiClient.patch<{ booking: any }>(`/bookings/${id}/cancel`),
+}
+
+// Export the api object for direct use
+export const api = apiClient
+
+export const itineraryAPI = {
+  generate: (data: any) => apiClient.post<{ success: boolean; data: any }>('/itineraries/generate', data),
+  getById: (id: string) => apiClient.get<{ success: boolean; data: any }>(`/itineraries/${id}`),
+  getByCircle: (circleId: string) => apiClient.get<{ success: boolean; data: any[] }>(`/itineraries/circle/${circleId}`),
+  getMyItineraries: () => apiClient.get<{ success: boolean; data: any[] }>('/itineraries/user/my'),
+  updateStatus: (id: string, status: string) => apiClient.put<{ success: boolean; data: any }>(`/itineraries/${id}/status`, { status }),
+  submitPreferences: (id: string, data: any) => apiClient.post<{ success: boolean; data: any }>(`/itineraries/${id}/preferences`, data),
+  voteOnActivity: (activityId: string, voteType: string, comment?: string) => 
+    apiClient.post<{ success: boolean; data: any }>(`/itineraries/activities/${activityId}/vote`, { voteType, comment }),
+  reorderActivities: (dayId: string, activityIds: string[]) => 
+    apiClient.put<{ success: boolean }>(`/itineraries/days/${dayId}/reorder`, { activityIds }),
+  deleteActivity: (activityId: string) => 
+    apiClient.delete<{ success: boolean }>(`/itineraries/activities/${activityId}`),
+  addActivity: (itineraryId: string, data: any) => 
+    apiClient.post<{ success: boolean; data: any }>(`/itineraries/${itineraryId}/activities`, data),
 }
 
 // Error handling helper
