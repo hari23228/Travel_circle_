@@ -1,23 +1,23 @@
 /**
  * Chatbot Routes
- * API endpoints for chatbot interactions
+ * API endpoints for chatbot interactions with enhanced model routing
  */
 
 const express = require('express');
 const router = express.Router();
 const chatbotController = require('../chatbot/controller');
+const enhancedController = require('../chatbot/enhancedController');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { logger } = require('../middleware/logger');
 
 /**
  * POST /api/chatbot/message
- * Send a message to the chatbot
- * Note: Using optionalAuth to allow both authenticated and anonymous users
+ * Send a message to the chatbot with model routing support
+ * Supports mode: 'weather' (Gemini) or 'itinerary' (Groq)
  */
 router.post('/message', optionalAuth, async (req, res) => {
   try {
-    const { message, metadata } = req.body;
-    // Use user ID if authenticated, otherwise generate a session ID from IP
+    const { message, metadata, mode } = req.body;
     const userId = req.user?.id || `guest_${req.ip.replace(/[.:]/g, '_')}`;
 
     if (!message || typeof message !== 'string') {
@@ -27,9 +27,13 @@ router.post('/message', optionalAuth, async (req, res) => {
       });
     }
 
-    const response = await chatbotController.processMessage({
+    // Use enhanced controller if mode is specified, otherwise use original
+    const controller = mode ? enhancedController : chatbotController;
+
+    const response = await controller.processMessage({
       userId,
       message: message.trim(),
+      mode,
       metadata: metadata || {}
     });
 

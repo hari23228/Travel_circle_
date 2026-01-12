@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus, Users, Target, TrendingUp, LogOut, Menu, User, MapPin, Plane, Hotel, Sparkles } from "lucide-react"
+import { Plus, Users, Target, TrendingUp, LogOut, Menu, User, MapPin, Plane, Hotel } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/lib/notification-context"
 import { supabase } from "@/lib/supabase"
-import { AIFeaturesButton } from "@/components/ai-features-button"
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -259,25 +258,7 @@ export default function DashboardPage() {
         {/* Main Action Cards */}
         <div className="mb-10">
           <h3 className="text-2xl font-bold text-foreground mb-6">What would you like to do?</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* AI Features Card */}
-            <Link href="/ai-features">
-              <Card className="p-8 hover:shadow-2xl transition-all duration-300 border-2 border-transparent hover:border-primary cursor-pointer h-full bg-gradient-to-br from-primary/5 to-primary/10">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Sparkles className="w-10 h-10 text-primary" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3 text-foreground">AI Features</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Smart itinerary generation & weather forecasting powered by AI
-                  </p>
-                  <Button className="bg-primary hover:bg-primary/90 text-white w-full">
-                    Explore AI Tools
-                  </Button>
-                </div>
-              </Card>
-            </Link>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Create Circle Card */}
             <Link href="/create-circle">
               <Card className="p-8 hover:shadow-2xl transition-all duration-300 border-2 border-transparent hover:border-primary cursor-pointer h-full">
@@ -456,9 +437,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-
-      {/* Floating AI Features Button */}
-      <AIFeaturesButton />
     </div>
   )
 }

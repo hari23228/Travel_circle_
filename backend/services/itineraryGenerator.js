@@ -341,7 +341,7 @@ class ItineraryGenerator {
     }));
 
     const prompt = `
-You are a travel itinerary planner. Create a ${totalDays}-day itinerary for ${destination}.
+You are an expert travel itinerary planner. Create a realistic, time-aware ${totalDays}-day itinerary for ${destination}.
 
 CRITICAL CONSTRAINTS (Budget-First Planning):
 - Total budget per person: ₹${totalBudget}
@@ -356,44 +356,62 @@ User preferences:
 Available attractions (with costs in INR):
 ${JSON.stringify(attractionsList, null, 2)}
 
+IMPORTANT PLANNING RULES:
+1. Each day starts at 9:00 AM and ends by 9:00 PM
+2. Include realistic travel time between locations (15-45 minutes)
+3. Schedule activities based on best visiting times (morning temples, sunset beaches, etc.)
+4. Include meal breaks: Breakfast (9:00-10:00), Lunch (12:30-14:00), Dinner (19:00-20:00)
+5. Add buffer time between activities for rest and unexpected delays
+6. Group nearby attractions on the same day to minimize travel
+7. Mix free and paid activities to stay within budget
+8. Each day should have a clear theme (culture, beaches, adventure, relaxation, etc.)
+9. Start with lighter activities on Day 1 (arrival day)
+10. End with memorable experiences on the last day
+
+TIME FORMAT:
+- Use 24-hour format: "09:00", "14:30", "18:00"
+- Specify exact start and end times for each activity
+- Ensure activities flow logically throughout the day
+
 Create a JSON response with this exact structure:
 {
   "days": [
     {
       "dayNumber": 1,
-      "theme": "Theme for the day",
+      "theme": "Arrival & Nearby Exploration",
       "activities": [
         {
-          "name": "Activity name",
-          "description": "Brief description",
-          "category": "attraction/restaurant/activity",
+          "name": "Hotel Check-in & Freshen Up",
+          "description": "Arrive and settle into your accommodation",
+          "category": "activity",
           "startTime": "09:00",
-          "endTime": "11:00",
-          "durationMinutes": 120,
-          "estimatedCost": 500,
-          "tips": "Pro tip for this activity"
+          "endTime": "10:30",
+          "durationMinutes": 90,
+          "estimatedCost": 0,
+          "tips": "Keep luggage light for easy check-in"
+        },
+        {
+          "name": "Breakfast at Local Café",
+          "description": "Try traditional local breakfast",
+          "category": "restaurant",
+          "startTime": "10:30",
+          "endTime": "11:30",
+          "durationMinutes": 60,
+          "estimatedCost": 300,
+          "tips": "Ask locals for their favorite dishes"
         }
       ],
-      "dailyBudget": 2000,
-      "notes": "Day summary"
+      "dailyBudget": ${Math.round(perDayBudget)},
+      "notes": "Easy start to acclimatize and explore nearby area"
     }
   ],
   "totalPlannedCost": 8000,
   "budgetSummary": {
     "totalBudget": ${totalBudget},
     "plannedSpend": 8000,
-    "buffer": 2000
+    "buffer": ${totalBudget - 8000}
   }
 }
-
-Rules:
-1. Start each day at 9 AM, end by 9 PM
-2. Include meal breaks (breakfast, lunch, dinner)
-3. Add 30-45 minutes buffer between activities
-4. Group nearby attractions on the same day
-5. Mix free and paid activities to stay within budget
-6. Include one "splurge" activity and balance with budget-friendly options
-7. Each day should have a clear theme
 
 Return ONLY valid JSON, no markdown or explanations.
 `;

@@ -375,29 +375,42 @@ ${weatherData.forecast.slice(0, 5).map((day, i) => `Day ${i + 1}: ${day.temperat
     }
 
     prompt += `
-**Instructions - BE FLEXIBLE AND HELPFUL:**
-1. Answer the user's ACTUAL question first, even if you don't have complete trip details
-2. If they're asking about weather/activities/best time: Answer based on what you know (from context OR from their message)
-3. If you have weather data, provide specific, actionable insights
-4. Only ask follow-up questions if absolutely needed for their request
-5. Don't force a linear "destination→dates→activities" flow - be conversational
-6. Use emojis sparingly and naturally
-7. Keep responses helpful and concise (150-300 words for questions, longer for complete trip plans)
+**Instructions - BE NATURAL AND CONCISE:**
+1. Answer the user's question directly - no fluff, no generic introductions
+2. Keep responses concise: 150-200 words for weather queries, 250-350 words maximum for complete trip plans
+3. DO NOT use bold text (**) or excessive formatting - write naturally
+4. DO NOT ask follow-up questions unless critical information is missing
+5. DO NOT end with "Let me know if you need help with..." or similar filler
+6. Use minimal emojis (1-2 max) or none at all
+7. Sound like a knowledgeable friend, not a formal assistant
 
-**Response Guidelines:**
-- **Weather Question** ("How's the weather in Goa?"): Answer immediately with weather data, don't ask for dates first
-- **Best Time Question** ("When should I visit?"): Provide recommendations, mention you can give more specific advice if they share dates
-- **Activity Question** ("What can I do there?"): Suggest activities, optionally ask what they're interested in
-- **New Info** (destination/dates/activities): Acknowledge warmly, maybe share a quick insight, ask ONE follow-up if helpful
-- **Greeting**: Welcome warmly, ask how you can help with their travel plans
-- **Complete Info**: Provide comprehensive weather-based trip planning
+**Weather Response Style:**
+Direct weather-to-activity mapping. State conditions, then immediately suggest what to do.
 
-**IMPORTANT:** 
-- Answer questions FIRST before collecting more info
-- If they mention a destination in their question ("weather in Paris"), use that for weather lookup even if context.destination is different
-- Be genuinely helpful, not a rigid form
+- **Hot & Sunny (>30°C):** Temperatures around [X]°C. Perfect for beach activities, swimming, surfing, water sports. Visit outdoor sites early (before 10 AM) or late (after 5 PM). Pack sunscreen SPF 30+, hat, light clothes, water bottle.
 
-Generate your response (plain text, conversational tone):`;
+- **Very Hot (>35°C):** It'll be very hot at [X]°C. Best for early morning beach visits, water activities, or indoor attractions during midday heat. Carry extra water, electrolyte drinks. Consider shifting outdoor plans to morning/evening.
+
+- **Pleasant/Mild (20-30°C):** Great weather at [X]°C. Ideal for city exploration, cultural tours, hiking, walking tours, café hopping, outdoor markets, sightseeing all day.
+
+- **Cool (15-20°C):** Mild temperatures around [X]°C. Good for hiking, city walks, outdoor cafes, museums. Bring a light jacket for evenings.
+
+- **Rainy (>60% probability):** Rain expected on [dates]. Plan indoor activities: museums, food tours, local markets, cooking classes, spa. Reschedule outdoor sightseeing to clearer days. Pack raincoat and umbrella.
+
+- **Extreme Weather:** Conditions are severe ([details]). I'd recommend rescheduling to [alternative dates] or focusing entirely on indoor experiences.
+
+**Format:**
+1. Quick weather summary (1-2 sentences with temps)
+2. Direct activity recommendations (3-5 activities matched to conditions)
+3. Essential packing items (concise list)
+4. Day-specific notes only if important (e.g., "rain on day 3")
+
+**Examples:**
+Dubai next week: 22-25°C with clear skies. Perfect for desert safari, beach walks, outdoor souks, Burj Khalifa visit, marina strolls. Pack light layers, sunglasses, comfortable shoes. Evenings will be cooler (around 16°C) so bring a light jacket.
+
+Goa in July: Expect heavy rain throughout. Skip beach plans - instead explore spice plantations, visit indoor markets, try local seafood restaurants, book cooking classes. If you want beach time, consider October-March instead.
+
+Generate your response (plain text, natural conversational tone):`;
 
     return prompt;
   }
@@ -435,17 +448,31 @@ Day ${i + 1} (${day.dateString}):
 1. Identify any weather-related conflicts with planned activities
 2. Recommend best days/times for each activity
 3. Suggest alternative activities if weather conflicts exist
-4. Provide packing recommendations
-5. Give overall trip feasibility assessment
+4. Provide PRACTICAL, ACTIONABLE packing recommendations based on actual conditions
+5. Give overall trip feasibility assessment with specific advice
+
+**Packing List Guidelines:**
+- **Hot Weather (>30°C):** Sunscreen SPF 30+, moisturizer, wide-brimmed hat, sunglasses, light cotton clothes, water bottle, cooling towels
+- **Very Hot (>35°C):** All above + electrolyte drinks, portable fan, extra hydration supplies
+- **Rainy (>60% probability):** Waterproof raincoat, compact umbrella, waterproof bag, quick-dry clothes, extra pairs of socks
+- **Cold (<15°C):** Warm jacket, layers, thermals, gloves, warm hat
+- **Humid:** Breathable fabrics, moisture-wicking clothes, anti-chafing cream
+
+**Alternative Suggestions:**
+- If extreme heat: Suggest indoor attractions, early morning/evening activities
+- If heavy rain expected: Recommend museums, indoor markets, cooking classes, spa visits
+- If conditions are dangerous: Strongly recommend rescheduling to safer dates
 
 Respond in JSON format:
 {
-  "conflicts": [{"activity": "...", "issue": "...", "severity": "high|medium|low"}],
-  "recommendations": [{"activity": "...", "bestTime": "...", "reason": "..."}],
+  "conflicts": [{"activity": "...", "issue": "...", "severity": "high|medium|low", "actionableAdvice": "specific recommendation"}],
+  "recommendations": [{"activity": "...", "bestTime": "...", "reason": "...", "practicalTips": "what to bring/do"}],
   "alternatives": [{"original": "...", "suggested": "...", "reason": "..."}],
-  "packingList": ["item1", "item2", ...],
-  "overallAssessment": "...",
-  "confidence": 0.0-1.0
+  "packingList": ["specific item with reason if weather-critical"],
+  "overallAssessment": "practical assessment with specific recommendations",
+  "confidence": 0.0-1.0,
+  "weatherWarnings": ["any important warnings about extreme conditions"],
+  "bestDaysForTravel": ["dates with optimal conditions and why"]
 }`;
   }
 
@@ -519,23 +546,53 @@ Example Responses:
 ${JSON.stringify(analysisData, null, 2)}
 
 **Requirements:**
-- Be warm, enthusiastic, and encouraging
-- Start with a brief overview and excitement about their trip
-- Organize information clearly with sections (use **bold** for headers)
-- Provide detailed insights for each aspect:
-  • Current weather conditions
-  • Day-by-day forecast highlights
-  • Activity-specific recommendations with best times
-  • Any weather conflicts or concerns
-  • Alternative suggestions if needed
-  • Complete packing list tailored to their trip
-  • Overall trip assessment and confidence level
-- Use emojis appropriately to enhance readability
-- Make it comprehensive (400-600 words) - this is important travel planning information
-- Be specific with temperatures, dates, and conditions
-- End with encouragement and offer to help with more details
+- Be warm and helpful, but CONCISE (250-350 words maximum)
+- DO NOT use bold text (**) anywhere - write naturally in plain text
+- DO NOT ask follow-up questions at the end
+- DO NOT use excessive formatting or structured sections
+- Use 1-2 emojis maximum, or none
+- Sound like a knowledgeable friend giving travel tips, not a formal guide
 
-Generate a natural, detailed conversation response (plain text, not JSON):`;
+**Content Structure:**
+1. Brief weather summary (2-3 sentences: temps, conditions)
+2. Direct activity recommendations based on weather:
+   - Hot/sunny → beach, water sports, early morning sightseeing, evening walks
+   - Mild/pleasant → city tours, hiking, café hopping, all-day outdoor activities
+   - Rainy → museums, food tours, indoor markets, reschedule outdoor plans
+   - Extreme → recommend different dates or indoor-only plans
+3. Quick packing essentials (1 sentence, items only)
+4. One important note if needed (e.g., "Tuesday looks rainy - good day for museums")
+
+**Weather-to-Activity Mapping (CRITICAL):**
+- 30-35°C sunny: "Great for beach time, swimming, water sports. Visit outdoor sites before 10 AM or after 5 PM."
+- 20-25°C clear: "Perfect for exploring the old town, hiking trails, outdoor cafes, walking tours."
+- Rainy forecast: "Plan indoor days - try local food markets, cooking classes, museums. Save outdoor activities for clearer days."
+- 35°C+: "Too hot for midday activities. Stick to early morning beach visits or indoor attractions. Consider visiting in cooler months."
+
+**Style:**
+- Natural, conversational tone
+- Direct and practical
+- No filler, no generic enthusiasm
+- Don't repeat what they already said
+- Give them actionable information they can use
+
+**BAD Example:**
+"Hello there! I'd be delighted to help you plan your trip to Dubai. Let's get you set up with all the weather information you'll need...
+
+**Detailed Weather Analysis & Recommendations:**
+...
+**Best Activities for the Weather:**
+...
+I hope this helps you prepare for an amazing trip to Dubai! Do you have any specific interests you'd like recommendations for?"
+
+**GOOD Example:**
+"Dubai next week looks great - expect 20-24°C during the day, cooling to 15-18°C at night. Clear skies, low humidity, minimal rain chance.
+
+This is ideal weather for desert safari at sunset, beach walks along JBR, exploring the old souks, visiting Burj Khalifa in the late afternoon, and evening strolls through Dubai Marina. You can comfortably spend the whole day outdoors.
+
+Pack light layers, a jacket for evenings, sunglasses, sunscreen SPF 30+, and comfortable walking shoes. Tuesday might be slightly cooler - good day for the outdoor miracle garden."
+
+Generate your response (plain text, natural tone, NO bold formatting, NO follow-up questions):`;
   }
 
   /**
@@ -1048,6 +1105,93 @@ Generate a natural, detailed conversation response (plain text, not JSON):`;
     }
     
     return items;
+  }
+
+  /**
+   * Analyze weather data for travel using Gemini AI
+   * This is used by the enhanced chatbot for intelligent weather insights
+   */
+  async analyzeWeatherForTravel({ location, weatherData, userQuery }) {
+    if (!this.enabled) {
+      return {
+        text: this.formatBasicWeatherResponse(location, weatherData),
+        data: weatherData,
+        suggestions: [
+          "What should I pack?",
+          "Best time to visit?",
+          "Weather for next week"
+        ]
+      };
+    }
+
+    try {
+      const prompt = `You are a travel weather assistant. Analyze the following weather data for ${location} and provide helpful travel advice.
+
+User Question: ${userQuery}
+
+Current Weather:
+- Temperature: ${weatherData.temperature?.current}°C (Feels like ${weatherData.temperature?.feelsLike}°C)
+- Condition: ${weatherData.condition}
+- Wind: ${weatherData.wind?.speed} km/h
+- Humidity: ${weatherData.details?.humidity}%
+- UV Index: ${weatherData.details?.uvIndex}
+${weatherData.rain ? `- Rain: ${weatherData.rain}mm` : ''}
+
+Provide:
+1. A conversational response to the user's question
+2. Travel advice based on this weather
+3. What to pack
+4. Best times for outdoor activities
+
+Keep the response friendly, conversational, and under 200 words.`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      return {
+        text: text,
+        data: {
+          weather: weatherData,
+          location: location
+        },
+        suggestions: [
+          "What should I pack for this weather?",
+          "Is it good weather for outdoor activities?",
+          "Will it rain this week?"
+        ]
+      };
+
+    } catch (error) {
+      logger.error('[Gemini] Weather analysis error:', error);
+      return {
+        text: this.formatBasicWeatherResponse(location, weatherData),
+        data: weatherData,
+        suggestions: [
+          "What should I pack?",
+          "Weather for next week"
+        ]
+      };
+    }
+  }
+
+  /**
+   * Format basic weather response without AI
+   */
+  formatBasicWeatherResponse(location, weatherData) {
+    let response = `🌤️ Weather in ${location}:\n\n`;
+    response += `Temperature: ${weatherData.temperature?.current}°C (Feels like ${weatherData.temperature?.feelsLike}°C)\n`;
+    response += `Condition: ${weatherData.condition}\n`;
+    response += `Wind: ${weatherData.wind?.speed} km/h\n`;
+    response += `Humidity: ${weatherData.details?.humidity}%\n`;
+    
+    if (weatherData.rain) {
+      response += `Rain: ${weatherData.rain}mm\n`;
+    }
+    
+    response += `\n💡 This weather data is brought to you by WeatherStack API.`;
+    
+    return response;
   }
 }
 
